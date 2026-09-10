@@ -1,0 +1,58 @@
+{
+  "$comment": "Frozen contract for the visualization tool. Browser reads these JSON files only — never parquet.",
+  "maps": {
+    "AmbroseValley": { "scale": 900, "origin_x": -370, "origin_z": -473, "size": 1024 },
+    "GrandRift": { "scale": 581, "origin_x": -290, "origin_z": -290, "size": 1024 },
+    "Lockdown": { "scale": 1000, "origin_x": -500, "origin_z": -500, "size": 1024 }
+  },
+  "MatchIndex": {
+    "match_id": "string",
+    "map_id": "AmbroseValley | GrandRift | Lockdown",
+    "date": "YYYY-MM-DD from Unix t0 (UTC), not the folder name",
+    "duration_s": "number, max(ts_raw) - min(ts_raw)",
+    "human_count": "number",
+    "bot_count": "number",
+    "kill_count": "Kill + BotKill",
+    "death_count": "Killed + BotKilled + KilledByStorm",
+    "loot_count": "number",
+    "storm_deaths": "number",
+    "partial_day": "true if date is 2026-02-14"
+  },
+  "Match": {
+    "match_id": "string",
+    "map_id": "string",
+    "date": "string",
+    "t0": "Unix seconds (int)",
+    "duration_s": "number",
+    "actors": "Actor[]",
+    "events": "Event[]  — story beats only, no Position/BotPosition"
+  },
+  "Actor": {
+    "user_id": "string",
+    "is_human": "boolean — UUID human, numeric bot",
+    "path": "{ t, x, z, px, py }[]  downsampled positions, t is seconds from t0"
+  },
+  "Event": {
+    "t": "seconds from match t0",
+    "user_id": "string",
+    "is_human": "boolean",
+    "type": "Kill | Killed | BotKill | BotKilled | Loot | KilledByStorm",
+    "x": "number",
+    "z": "number",
+    "px": "number 0..1024",
+    "py": "number 0..1024"
+  },
+  "Heatmaps": {
+    "grid": 64,
+    "layers": ["traffic", "kills", "deaths_pvp", "deaths_storm"],
+    "cells": "{ ix, iy, n }[]  sparse bins, ix/iy in 0..63"
+  },
+  "assumptions": [
+    "Parquet ts is timestamp[ms] but raw int64 values are Unix seconds. Duration = delta of raw ints, not pandas datetime.",
+    "Dedupe actors by (user_id, match_id); the same file can appear in two day folders.",
+    "Calendar date comes from Unix t0 UTC, not the February_* folder (matches can straddle folders).",
+    "y is elevation and is dropped for 2D. Pixel mapping uses README UV + Y flip.",
+    "Bot files can contain BotKill/BotKilled, not only BotPosition.",
+    "February 14 is a partial day."
+  ]
+}
