@@ -2,7 +2,8 @@
 
 Web tool for Level Designers: see how players move, fight, loot, and die on LILA BLACK maps.
 
-**Live:** _(added after deploy)_
+**Live:** https://lila-player-journey-sage.vercel.app  
+**Repo:** https://github.com/iamdeepakram/lila-player-journey
 
 ## Walkthrough
 
