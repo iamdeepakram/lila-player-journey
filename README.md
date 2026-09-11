@@ -5,7 +5,18 @@ Web tool for Level Designers: see how players move, fight, loot, and die on LILA
 **Live:** https://lila-player-journey-sage.vercel.app  
 **Repo:** https://github.com/iamdeepakram/lila-player-journey
 
-## Walkthrough
+## 60-second walkthrough
+
+[Watch the recording](docs/walkthrough.mp4) — Ambrose Valley heat and playback, then Lockdown and Grand Rift.
+
+What you will see:
+
+1. Land on **AmbroseValley / 2026-02-10**. Traffic heat makes the empty east side obvious.
+2. **Play at 4x** so the human (cyan) and bots (orange) draw on the minimap.
+3. Turn on **Kill zones** and **Storm death** heat.
+4. Switch **Map** to Lockdown, play again, then Grand Rift.
+
+## Walkthrough (step by step)
 
 1. Open the live URL (or `npm run dev`). You land on **AmbroseValley / 2026-02-10** and a real match (`1H / 6B · 382s`).
 2. **Traffic heat** is on. The cyan wash is where humans walked that day. The east side of Ambrose Valley is empty.
@@ -49,8 +60,9 @@ data/schema.json        frozen JSON contract
 public/data/            index, matches, heat
 public/minimaps/        1024² JPEGs
 src/                    React app
-ARCHITECTURE.md         decisions, coords, tradeoffs
+ARCHITECTURE.md         for designers and engineers
 INSIGHTS.md             three findings from the tool
+docs/walkthrough.mp4    60-second screen recording
 ```
 
 `player_data/` parquet is not in git (large, already provided in the assignment zip). The app runs from `public/data`.

@@ -1,107 +1,112 @@
-# Architecture — LILA Player Journey tool
+# Architecture — LILA Player Journey
 
-This file is the stack decision, data pipeline, coordinate mapping, and what we are **not** building yet. UI details will grow as phases ship. The assignment asks for one page of decisions; the longer comparison is kept here so the reasoning is not lost.
+This note is for two readers.
 
-## What we are building with (now)
+- **If you design maps or products:** read *What this is* and *How someone uses it*. A [60-second recording](docs/walkthrough.mp4) shows the same loop.
+- **If you review the code:** keep going through *How it is built* and *Decisions*.
 
-| Layer | Choice | Why |
+---
+
+## What this is
+
+Level designers had match recordings and map pictures, but no easy way to **see** them together. Opening parquet files in Python and guessing coordinates is how people give up.
+
+This tool is a webpage. You pick a map, a day, and a match. Player paths and fights draw on the official minimap. You can play the match like a tape, or look at heat for the whole day.
+
+It answers questions like: where do people actually walk? where do they fight? where do they die to the storm? which parts of the map are empty?
+
+It does **not** try to be a data-science notebook. The user is a designer, not a SQL person.
+
+---
+
+## How someone uses it
+
+Three steps, on purpose:
+
+1. **Orient** — land on Ambrose Valley, see the traffic heat. The empty east side is obvious.
+2. **Suspect** — “this corner is a death trap” or “nobody goes right.”
+3. **Verify** — open one match, hit Play, watch it happen.
+
+Humans are bright cyan. Bots are quieter orange. Loot, kills, deaths, and storm deaths are separate marks you can turn off.
+
+We never dump all 796 matches on one canvas. That would be brown sludge. Default is **one map, one date, one match**.
+
+---
+
+## How it is built
+
+Think of two rooms.
+
+**Kitchen (once, on a laptop):** a Python script reads the raw match files and writes small JSON files plus map images. That is `scripts/etl.py`.
+
+**Dining room (the website):** the browser only loads those JSON files and draws on a canvas over the minimap. No Python runs in production. Vercel just hosts a folder.
+
+```
+raw match files (parquet)
+        ↓  Python, once
+JSON + minimap pictures
+        ↓  any browser
+what the designer sees
+```
+
+| Piece | Choice | In plain language |
 |---|---|---|
-| Data | Offline Python ETL → static JSON | 89k rows. Browser must not parse 1,243 parquet files. |
-| App shell | Vite + React + TypeScript | Filters, legend, and match state are UI. Static hosting. |
-| Map renderer | Canvas 2D in `src/mapRenderer.ts` | One match, tens of actors, 1024×1024 minimap. `requestAnimationFrame` later for playback. |
-| Hosting | Static (Vercel) | Shareable link, no Python process. |
+| Data prep | Python ETL | Cook the data before guests arrive |
+| Website | Vite + React | Buttons, filters, layout |
+| Drawing | HTML Canvas 2D | Paths and heat on top of the map picture |
+| Hosting | Vercel (static) | A link. No server to babysit |
 
-**Swap rule:** the shell never draws pixels. `MapRenderer` is `{ setMatch, setTime, setLayers, draw }`. If Canvas 2D janks, replace the file with PixiJS. JSON schema and filters stay.
+The drawing code lives in `src/mapRenderer.ts`. React never paints pixels itself. If we later need WebGL (PixiJS) for thousands of paths, we replace that one file. Filters and JSON stay.
 
-## Data flow
+### Turning game space into map pixels
 
-```
-player_data/** parquet
-    → scripts/etl.py
-    → public/data/index.json          (match list + map config)
-    → public/data/matches/{id}.json   (actors + story events, px/py baked)
-    → public/data/heat/*.json         (64×64 sparse grids)
-    → public/minimaps/*               (images)
-    → React app fetches JSON, canvas draws
-```
-
-The browser never reads parquet.
-
-## Coordinate mapping
-
-World `(x, z)` → minimap pixels. `y` is elevation and is ignored.
+The game stores 3D positions. The minimap is a 2D picture (1024×1024). Height (`y`) is ignored. We use `x` and `z`, shift by the map origin, divide by scale, then **flip Y** because images start at the top-left.
 
 ```
 u = (x - origin_x) / scale
 v = (z - origin_z) / scale
-px = u * 1024
-py = (1 - v) * 1024    # image origin is top-left
+pixel_x = u × 1024
+pixel_y = (1 - v) × 1024
 ```
 
-| Map | scale | origin_x | origin_z |
-|---|---|---|---|
-| AmbroseValley | 900 | -370 | -473 |
-| GrandRift | 581 | -290 | -290 |
-| Lockdown | 1000 | -500 | -500 |
-
-ETL bakes `px`/`py` so the UI cannot drift from this formula. Verified: a stitched AmbroseValley match lands on terrain, not mirrored.
-
-## Time
-
-Parquet type is `timestamp[ms]`, so pandas shows `1970-01-21` and ~0.4s matches. Raw int64 values are **Unix seconds** (Feb 2026). Duration = `max(ts_raw) - min(ts_raw)`. Match `t` is seconds from that minimum. Date in the index is UTC date of `t0` (one match falls on `2026-02-09` UTC). Folder names are not match dates; files can appear in two days.
-
-## Assumptions
-
-- Dedupe actors on `(user_id, match_id)` — duplicate human file across Feb 10/11.
-- UUID `user_id` = human; numeric = bot.
-- README is incomplete: bot files also carry `BotKill` / `BotKilled`.
-- No extract event. “Loot on the way to extract” is not directly answerable.
-- Feb 14 is a partial day (`partial_day` on those matches).
-- Kill vs Killed are two positions (killer vs victim) in two files.
-
-## Tradeoffs
-
-| Option | Decision | Why |
+| Map | scale | origin |
 |---|---|---|
-| Streamlit | No | Rerun model is a bad fit for playback. Looks like a DS notebook. Needs a live Python host. |
-| PixiJS / WebGL now | No | Right for thousands of sprites. Wrong for 8 bots on a minimap. Add behind `MapRenderer` if Canvas 2D drops frames. |
-| Vue / Svelte | Not now | Same architecture as React. React is the most familiar review surface. |
-| MapLibre/Leaflet | No | This is an image overlay, not GIS. Our UV math is already the projection. |
-| Warehouse / Spark | No | Dataset is ~8MB. |
-| Parquet in the browser | No | Fragile first paint; ETL is the product API. |
-| Show all 796 matches at once | No | Unreadable. Default: one map, one date, one match. |
+| Ambrose Valley | 900 | (-370, -473) |
+| Grand Rift | 581 | (-290, -290) |
+| Lockdown | 1000 | (-500, -500) |
 
-## Future scale (not in assignment scope)
+The script stores `pixel_x` / `pixel_y` in JSON so the website cannot “almost” get this formula wrong. We checked by drawing a known match: the line sits on terrain, not mirrored into the void.
 
-If this became a live LD tool: keep the JSON contract; run ETL on a schedule into object storage; add a small index API when `index.json` is too big; precompute heat tiles; swap Canvas 2D → PixiJS (or MapLibre) inside `MapRenderer` only.
+### Time
 
-Features we are **not** building now: live ingest, designer comments, compare-two-days, storm mesh, clip export, auth. The schema can grow events without changing the shell.
+The files *say* timestamps in milliseconds. If you trust that, a match lasts 0.4 seconds and the clock reads 1970. The raw numbers are actually **Unix seconds** in February 2026. We treat duration as `last - first` of those integers. The date on the filter is that instant in UTC, not the folder name `February_10` — some matches were copied into two folders.
 
-### App shell (if we had to choose again)
+### Who is a human
 
-| | Streamlit | React + Vite | Vue + Vite | Svelte + Vite | Plain HTML |
-|---|---|---|---|---|---|
-| Designer UX | Weak | Strong | Strong | Strong | Strong if designed |
-| Playback + layers | Fights rerun | Natural | Natural | Natural | You write it |
-| Future routes/compare | Painful | Easy | Easy | Easy | Messy |
-| Host Pixi later | Hard | Easy | Easy | Easy | Easy |
-| Take-home signal | DS demo | Product tool | Product tool | Product tool | Simple tool |
-| Use for this repo | No | **Yes** | Fine | Fine | Fine if UI stays one screen |
+A UUID is a human. A short number (`1440`) is a bot. Combat with bots is often stored on the **human’s** file (`BotKill` / `BotKilled`), even when the README only mentions `BotPosition` for bots.
 
-React vs Vue vs Svelte is not a scalability decision. All three can host a canvas.
+---
 
-### Renderer (if we had to choose again)
+## Decisions (why not the obvious alternatives)
 
-| | Canvas 2D | PixiJS | MapLibre | Plotly/Streamlit |
-|---|---|---|---|---|
-| 1 match, tens of actors | **Perfect** | Overkill | Overkill | Awkward |
-| 60fps scrub | Easy | Easy | Easy | Poor |
-| 5k paths / effects | Will jank | Why Pixi exists | Tiles | No |
-| Take-home risk | Low | “Why WebGL?” | “Why a map engine?” | DS demo |
-| Swap later | Starting point | Next step | If world pan/zoom | Dead end |
+| Idea | We did | Why |
+|---|---|---|
+| Streamlit / Plotly | No | Fine for analysts. Bad for “press Play and watch a match.” Also needs a live Python process. |
+| Draw every match at once | No | Unreadable. Designers drill in. |
+| Parse parquet in the browser | No | 1,243 files, easy to break the first load. JSON is the product API. |
+| Spark / a warehouse | No | ~8MB of events. A warehouse is a costume. |
+| PixiJS / a map engine now | No | Right for thousands of sprites or GIS. Wrong for eight bots on a picture. |
+| Vue or Svelte instead of React | No | Same architecture. React is what most reviewers have seen. |
 
-## Phase plan
+**If this tool grew** into live ops: keep the JSON shape, run the kitchen script on a schedule, add an API only when the match list is too big, swap Canvas for Pixi if frames drop. Do not rebuild the product to change the renderer.
 
-1. **ETL** — done.
-2. **UI** — map, paths, markers, filters, playback, heatmaps — done.
-3. **Host + README + insights** — see live URL in README.
+---
+
+## Assumptions we documented rather than blocking on
+
+- Same player can appear in two day folders → we keep one `(user_id, match_id)`.
+- There is **no extract event**, so “loot on the way to extract” cannot be proven, only guessed.
+- 14 Feb is a partial day. Do not treat it as a full trend.
+- `Kill` and `Killed` are two people, two files, two positions (shooter vs victim).
+
+Schema: `data/schema.json`. Insights we actually saw in the tool: `INSIGHTS.md`.
