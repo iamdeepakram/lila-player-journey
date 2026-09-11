@@ -1,13 +1,21 @@
 # LILA BLACK — Player Journey tool
 
-Web tool for Level Designers: see how players move, fight, loot, and die on LILA BLACK maps.
+This repo is based on **our understanding of the assignment**: ship a hosted tool so a Level Designer can **see** how players move, fight, loot, and die on LILA BLACK maps — then prove we learned something about the game from the tool itself.
+
+That reading is enough for a first useful loop (filter a map → read heat → play one match). To develop the tool further we would need **consistent communication with the level design team**. Their map intent and playtests are the missing half of the product. The files show where people walked; designers know whether that is a problem, which overlays they trust, and what “done” looks like for a map pass.
+
+How we used Cursor and Figma to get here: [PROCESS.md](PROCESS.md).
 
 **Live:** https://lila-player-journey-sage.vercel.app  
 **Repo:** https://github.com/iamdeepakram/lila-player-journey
 
 ## 60-second walkthrough
 
-[Watch the recording](docs/walkthrough.mp4) — Ambrose Valley heat and playback, then Lockdown and Grand Rift.
+The recording plays below (Ambrose Valley heat and playback, then Lockdown and Grand Rift).
+
+![60-second walkthrough of the player-journey tool](docs/walkthrough.gif)
+
+Original file: [docs/walkthrough.mp4](docs/walkthrough.mp4)
 
 What you will see:
 
@@ -62,7 +70,10 @@ public/minimaps/        1024² JPEGs
 src/                    React app
 ARCHITECTURE.md         for designers and engineers
 INSIGHTS.md             three findings from the tool
-docs/walkthrough.mp4    60-second screen recording
+PROCESS.md              Cursor + Figma/FigJam from brief to ship
+docs/walkthrough.gif    60s recording (plays in this README)
+docs/walkthrough.mp4    original screen recording
+docs/figjam/            screenshots of the four understanding boards
 ```
 
 `player_data/` parquet is not in git (large, already provided in the assignment zip). The app runs from `public/data`.
